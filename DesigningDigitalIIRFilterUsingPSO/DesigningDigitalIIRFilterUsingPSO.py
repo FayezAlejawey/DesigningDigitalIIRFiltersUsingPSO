@@ -52,23 +52,25 @@ def CalculateFitnessFunctionValue(matrix, domainVal, type):
 
     if numOfRows == 1:
         actualVal = GetActualFunction(domainVal, matrix, type)
-        L_1_norm = GetLpNormApproximationError(GetTheoriticalFunction(domainVal, matrix, type), actualVal, 1)
-        L_2_norm = GetLpNormApproximationError(GetTheoriticalFunction(domainVal, matrix, type), actualVal, 2)
+        theoriticalFun = GetTheoriticalFunction(domainVal, matrix, type)
+        L_1_norm = GetLpNormApproximationError(theoriticalFun, actualVal, 1)
+        L_2_norm = GetLpNormApproximationError(theoriticalFun, actualVal, 2)
         rippleMagOfPassBand = GetRippleMagnitudes(actualVal, True)
         rippleMagOfStopBand = GetRippleMagnitudes(actualVal, False)
         objectiveFunction = GetObjectiveFunction(L_1_norm, L_2_norm, rippleMagOfPassBand, rippleMagOfStopBand)
-        return np.sum(objectiveFunction)
+        return objectiveFunction
 
     fitnessArr = []
     for index in range(0, numOfRows):
         row = matrix[index, :]
         actualVal = GetActualFunction(domainVal, row, type)
-        L_1_norm = GetLpNormApproximationError(GetTheoriticalFunction(domainVal, row, type), actualVal, 1)
-        L_2_norm = GetLpNormApproximationError(GetTheoriticalFunction(domainVal, row, type), actualVal, 2)
+        theoriticalFun = GetTheoriticalFunction(domainVal, row, type)
+        L_1_norm = GetLpNormApproximationError(theoriticalFun, actualVal, 1)
+        L_2_norm = GetLpNormApproximationError(theoriticalFun, actualVal, 2)
         rippleMagOfPassBand = GetRippleMagnitudes(actualVal, True)
         rippleMagOfStopBand = GetRippleMagnitudes(actualVal, False)
         objectiveFunction = GetObjectiveFunction(L_1_norm, L_2_norm, rippleMagOfPassBand, rippleMagOfStopBand)
-        fitnessArr.append(np.sum(objectiveFunction))
+        fitnessArr.append(objectiveFunction)
 
     return fitnessArr
 
@@ -149,8 +151,6 @@ def GetActualFunction(domainVal, arr, type):
         return GetHpfTransferFunction(domainVal, arr)
     if type == 'LPF':
         return GetLpfTransferFunction(domainVal, arr)
-    if type == 'BPF':
-        return GetBpfTransferFunction(domainVal, arr)
 
 def GetTheoriticalFunction(domain, gbest, type):
     if type == 'LR':
@@ -159,8 +159,6 @@ def GetTheoriticalFunction(domain, gbest, type):
         return GetHpfPiecewiseFunction(domain)
     if type == 'LPF':
         return GetLpfPiecewiseFunction(domain)
-    if type == 'BPF':
-        return GetBpfPiecewiseFunction(domain)
 
 def GetLpfPiecewiseFunction(domain):
     conds = [domain < 0, (domain >= 0) & (domain <= 0.2*math.pi), domain > 0.2*math.pi]
@@ -169,11 +167,6 @@ def GetLpfPiecewiseFunction(domain):
 
 def GetHpfPiecewiseFunction(domain):
     conds = [domain < 0.8*math.pi, (domain >= 0.8*math.pi) & (domain <= math.pi), domain > math.pi]
-    funcs = [lambda domain: 0, lambda domain: 1, lambda domain: 0]
-    return np.piecewise(domain, conds, funcs)
-
-def GetBpfPiecewiseFunction(domain):
-    conds = [domain < 0.4*math.pi, (domain >= 0.4*math.pi) & (domain <= 0.6*math.pi), domain > 0.6*math.pi]
     funcs = [lambda domain: 0, lambda domain: 1, lambda domain: 0]
     return np.piecewise(domain, conds, funcs)
 
@@ -201,25 +194,6 @@ def GetHpfTransferFunction(omega, gbest):
     #denom = np.abs(1 + gbest[4]*GetEulerFormula(omega, 1) + gbest[5]*GetEulerFormula(omega, 2) + gbest[6]*GetEulerFormula(omega, 3))
     numerator = firstNumerator*secondNumerator
     denominator = firstDenominator*secondDenominator
-
-    transferFun = np.divide(numerator, denominator)
-    return transferFun
-
-def GetBpfTransferFunction(omega, gbest):
-    firstNumerator = 1 + gbest[0]*GetEulerFormula(omega, 1)
-    secondNumerator = 1 + gbest[1]*GetEulerFormula(omega, 1)
-
-    firstDenominator = 1 + gbest[2]*GetEulerFormula(omega, 1)
-    secondDenominator = 1 + gbest[3]*GetEulerFormula(omega, 1)
-
-    thirdNumerator = 1 + gbest[4]*GetEulerFormula(omega, 1) + gbest[5]*GetEulerFormula(omega, 2)
-    forthNumerator = 1 + gbest[6]*GetEulerFormula(omega, 1) + gbest[7]*GetEulerFormula(omega, 2)
-
-    thirdDenominator = 1 + gbest[8]*GetEulerFormula(omega, 1) + gbest[9]*GetEulerFormula(omega, 2)
-    forthDenominator = 1 + gbest[10]*GetEulerFormula(omega, 1) + gbest[11]*GetEulerFormula(omega, 2)
-
-    numerator = firstNumerator*secondNumerator*thirdNumerator*forthNumerator
-    denominator = firstDenominator*secondDenominator*thirdDenominator*forthDenominator
 
     transferFun = np.divide(numerator, denominator)
     return transferFun
@@ -297,40 +271,6 @@ def DesignDigitalIirHpf(type):
         axisIndex+=1
 
     plt.show()
-
-def DesignDigitalIirBpf(type):
-    domainValue = np.linspace(0, math.pi, 100)
-    normalizedDomainValue = domainValue/np.max(domainValue)
-
-    psoResult = PSO(50, 12, 1000, domainValue, type) 
-    print(psoResult)
-
-    gbest = psoResult[0]
-
-    transferFun = GetActualFunction(domainValue, gbest, type)
-    magnitudeOfTransferFun = np.abs(transferFun)
-    normalizedMagnitudeOfTransferFun = magnitudeOfTransferFun/np.max(magnitudeOfTransferFun)
-
-    theoriticalLpf = GetTheoriticalFunction(domainValue, gbest, type)
-
-    fig, axs = plt.plt.subplots(2)
-    axs[0].plot(normalizedDomainValue, normalizedMagnitudeOfTransferFun, color='r')
-    axs[0].plot(normalizedDomainValue, theoriticalLpf, color='b')
-    axs[0].set_title('BP Filter Magnitude Response')
-
-    iterations = list(range(0, len(psoResult[1])))
-    axs[1].plot(iterations, psoResult[1])
-    axs[1].set_title('Learning Curve')
-
-    axisIndex = 0
-    for ax in axs.flat:
-        if axisIndex == 0:
-            ax.set(xlabel='Normalized w', ylabel='|H(w)|')
-        if axisIndex == 1:
-            ax.set(xlabel='iterations', ylabel='Fitness(gbest)')
-        axisIndex+=1
-
-    plt.show()
 ###########################################################
 
 ###################Linear Regression#######################
@@ -373,14 +313,11 @@ def CallPsoBasedOnType(type):
         DesignDigitalIirHpf(type)
     elif type == 'LPF':
         DesignDigitalIirLpf(type)
-    elif type == 'BPF':
-        DesignDigitalIirBpf(type)
 ###########################################################
 
 #################Start of The Application##################
 #For LPF Design Insert 'LPF'
 #For HPF Design Insert 'HPF'
-#For BPF Design Insert 'BPF'
 #For Linear Regression Insert 'LR'
-CallPsoBasedOnType('HPF')
+CallPsoBasedOnType('LPF')
 ###########################################################
